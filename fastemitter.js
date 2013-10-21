@@ -445,6 +445,13 @@ EventEmitter.prototype._emitApply =
 function EventEmitter$_emitApply( index, length, args ) {
     var eventsWereFired = false;
     var multipleListeners = ( length - index ) > 1;
+     if( !multipleListeners ) {
+        if( this[index] !== void 0) {
+            this[index].apply( this, args );
+            return true;
+        }
+        return false;
+    }
     var next = void 0;
     for( ; index < length; ++index ) {
         if( this[index] === void 0 ) {
@@ -468,6 +475,13 @@ function EventEmitter$_emitApply( index, length, args ) {
 EventEmitter.prototype._emit0 = function EventEmitter$_emit0( index, length ) {
     var eventsWereFired = false;
     var multipleListeners = ( length - index ) > 1;
+    if( !multipleListeners ) {
+        if( this[index] !== void 0) {
+            this[index]();
+            return true;
+        }
+        return false;
+    }
     var next = void 0;
     for( ; index < length; ++index ) {
         if( this[index] === void 0 ) {
@@ -492,6 +506,13 @@ EventEmitter.prototype._emit1 =
 function EventEmitter$_emit1( index, length, a1 ) {
     var eventsWereFired = false;
     var multipleListeners = ( length - index ) > 1;
+    if( !multipleListeners ) {
+        if( this[index] !== void 0) {
+            this[index]( a1 );
+            return true;
+        }
+        return false;
+    }
     var next = void 0;
     for( ; index < length; ++index ) {
         if( this[index] === void 0 ) {
@@ -516,6 +537,13 @@ EventEmitter.prototype._emit2 =
 function EventEmitter$_emit2( index, length, a1, a2 ) {
     var eventsWereFired = false;
     var multipleListeners = ( length - index ) > 1;
+     if( !multipleListeners ) {
+        if( this[index] !== void 0) {
+            this[index]( a1, a2 );
+            return true;
+        }
+        return false;
+    }
     var next = void 0;
     for( ; index < length; ++index ) {
         if( this[index] === void 0 ) {
@@ -536,21 +564,25 @@ function EventEmitter$_emit2( index, length, a1, a2 ) {
     return eventsWereFired;
 };
 
+//eventSpace =
+//The reserved space for handlers of a distinct event type
+
+//eventCount =
+//The amount of unique event types currently registered.
+//Might not be the actual amount
+
+//eventLength
+//The length of the buffer where everything is stored
+//Initially reserves space for INITIAL_DISTINCT_HANDLER_TYPES
+//distinct event types
 EventEmitter.prototype._maybeInit = function EventEmitter$_maybeInit() {
     if( typeof this._eventLength !== "number" ) {
-        //The reserved space for handlers of a distinct event type
         this._eventSpace = 1;
-        //The amount of unique event types currently registered.
-        //Might not be the actual amount
         this._eventCount = 0;
-        //The length of the buffer where everything is stored
-        //Initially reserves space for INITIAL_DISTINCT_HANDLER_TYPES
-        //distinct event types
         this._eventLength = ( ( this._eventSpace + 1 ) *
                                 INITIAL_DISTINCT_HANDLER_TYPES ) | 0;
         this._initSpace();
     }
-
 };
 
 EventEmitter.prototype._initSpace = function EventEmitter$_initSpace() {
@@ -561,3 +593,4 @@ EventEmitter.prototype._initSpace = function EventEmitter$_initSpace() {
 };
 
 module.exports = EventEmitter;
+
