@@ -107,15 +107,22 @@ function EventEmitter$removeListener( type, listener ) {
     var k = index + 1;
     var j = k;
     var len = k + eventSpace + 1;
+    var skips = 0;
 
     for( ; k < len; ++k ) {
         if( this[k] === listener ) {
+            skips++;
             this[k] = void 0;
         }
         else {
             this[ j++ ] = this[ k ];
         }
     }
+
+    for( k = len - skips; k < len; ++k ) {
+        this[k] = void 0;
+    }
+
 
     return this;
 };
@@ -194,7 +201,6 @@ EventEmitter.prototype._doCompact = function EventEmitter$_doCompact() {
         j += eventSpace;
     }
     if( !shouldCompact ) return false;
-    console.log("doin compact");
     j = 0;
     var len = this._eventLength;
     var skips = 0;
@@ -282,26 +288,3 @@ EventEmitter.prototype._initSpace = function EventEmitter$_initSpace() {
         this[i] = void 0;
     }
 };
-
-
-var a = new EventEmitter();
-
-function luls() {
-    console.log("hi");
-}
-
-a.addListener("lol1", luls);
-a.addListener("lol1", luls);
-a.addListener("lol2", luls);
-a.addListener("lol2", luls);
-a.addListener("lol3", luls);
-a.addListener("lol3", luls);
-a.addListener("lol4", luls);
-a.addListener("lol4", luls);
-a.addListener("lol5", luls);
-a.addListener("lol5", luls);
-a.addListener("lol6", luls);
-a.addListener("lol6", luls);
-a[16] = a[17] = void 0
-a.addListener("lol7", luls);
-a.addListener("lol7", luls);
