@@ -1,5 +1,5 @@
 {
-  "name": "FastEmitter",
+  "name": "fastemitter",
   "description": "A fast implementation of the node EventEmitter core module",
   "version": "0.0.1-0",
   "keywords": [
