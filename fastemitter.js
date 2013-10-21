@@ -2,8 +2,13 @@
 
 function EventEmitter() {
     this.domain = null;
+    //The reserved space for handlers of a distinct event type
     this._eventSpace = 4;
+    //The amount of unique event types currently registered.
+    //Might not be the actual amount
     this._eventCount = 0;
+    //The length of the buffer where everything is stored
+    //Initially reserves space for 6 distinct event types
     this._eventLength = ( ( this._eventSpace + 1 ) * 6 ) | 0;
     this._initSpace();
 }
