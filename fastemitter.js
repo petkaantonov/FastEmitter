@@ -10,7 +10,7 @@ function EventEmitter() {
 
 EventEmitter.prototype.emit = function EventEmitter$emit( type ) {
     if( type === void 0 ) return false;
-    if( typeof type !== "string ")
+    if( typeof type !== "string")
         type = ( "" + type );
 
     //TODO "error" event stuff
@@ -26,7 +26,7 @@ EventEmitter.prototype.emit = function EventEmitter$emit( type ) {
     var len = k + eventSpace + 1;
     var eventsWereFired = false;
 
-    if( arguments.length > 4 ) {
+    if( arguments.length > 3 ) {
         var args = new Array( arguments.length - 1 );
         for( var i = 0, len = args.length; i < len; ++i ) {
             args[i] = arguments[i+1];
@@ -81,7 +81,7 @@ EventEmitter.prototype.addListener =
 function EventEmitter$addListener( type, listener ) {
     if( typeof listener !== "function" )
         throw new TypeError('listener must be a function');
-    if( typeof type !== "string ")
+    if( typeof type !== "string" )
         type = ( "" + type );
 
     var index = this._nextFreeIndex( type );
@@ -95,7 +95,7 @@ EventEmitter.prototype.removeListener =
 function EventEmitter$removeListener( type, listener ) {
     if( typeof listener !== "function" )
         throw new TypeError('listener must be a function');
-    if( typeof type !== "string ")
+    if( typeof type !== "string")
         type = ( "" + type );
 
     var index = this._indexOfEvent( type );
@@ -126,7 +126,7 @@ function EventEmitter$removeAllListeners( type ) {
         this._initSpace();
         return this;
     }
-    if( typeof type !== "string ")
+    if( typeof type !== "string")
         type = ( "" + type );
 
     var index = this._indexOfEvent( type );
@@ -154,20 +154,28 @@ function EventEmitter$_resizeForHandlers() {
     var oldEventSpace = this._eventSpace;
     var newEventSpace = this._eventSpace = ( oldEventSpace * 2 + 2 );
     var eventCount = this._eventCount;
-    var length = this._eventLength = ( ( this._eventSpace + 1 ) *
+    var length = this._eventLength = ( ( newEventSpace + 1 ) *
             Math.max( this._eventCount, 6 ) ) | 0;
 
-    var oldI = 0;
-    var len = Math.max( eventCount, 6 );
-    for( var i = 0; i < len; ++i ) {
-        var j;
-        for( j = oldI; j < oldEventSpace; ++j ) {
-            this[j] = tmp[j];
+    newEventSpace++;
+    oldEventSpace++;
+    for( var i = 0, j = 0;
+        i < length;
+        i+= newEventSpace, j += oldEventSpace ) {
+
+        var k = j;
+        var m = k + oldEventSpace;
+        var n = 0;
+        for( ; k < m; ++k ) {
+            this[i + n] = tmp[k];
+            n++;
         }
-        for( ; j < newEventSpace; ++j ) {
-            this[j] = void 0;
+
+        k = i + n;
+        m = i + newEventSpace;
+        for( ; k < m; ++k ) {
+            this[k] = void 0;
         }
-        oldI += oldEventSpace
     }
 };
 
@@ -175,7 +183,7 @@ function EventEmitter$_resizeForHandlers() {
 
 EventEmitter.prototype._doCompact = function EventEmitter$_doCompact() {
     var j = 0;
-    var eventSpace = this._eventSpace;
+    var eventSpace = this._eventSpace + 1;
     var eventCount = this._eventCount;
     var shouldCompact = false;
     for( var i = 0; i < eventCount; ++i ) {
@@ -186,7 +194,7 @@ EventEmitter.prototype._doCompact = function EventEmitter$_doCompact() {
         j += eventSpace;
     }
     if( !shouldCompact ) return false;
-
+    console.log("doin compact");
     j = 0;
     var len = this._eventLength;
     var skips = 0;
@@ -196,8 +204,8 @@ EventEmitter.prototype._doCompact = function EventEmitter$_doCompact() {
             skips += eventSpace;
         }
         else {
-            var k = i - 1;
-            var m = k + eventSpace + 1;
+            var k = i;
+            var m = k + eventSpace;
             for( ; k < m; ++k ) {
                 this[ j++ ] = this[ k ];
             }
@@ -214,10 +222,11 @@ function EventEmitter$_resizeForEvents() {
     if( this._doCompact() ) {
         return;
     }
-    var oldLength = this._oldLength;
+    var oldLength = this._eventLength;
     var newLength = this._eventLength = ( ( this._eventSpace + 1 ) *
             Math.max( this._eventCount * 2, 6 ) ) | 0;
 
+    console.log(oldLength, newLength);
     for( var i = oldLength; i < newLength; ++i ) {
         this[i] = void 0;
     }
@@ -228,7 +237,7 @@ EventEmitter.prototype._indexOfEvent =
 function EventEmitter$_indexOfEvent( eventName ) {
     if( this._eventCount === 0 ) return -1;
     var j = 0;
-    var eventSpace = this._eventSpace;
+    var eventSpace = this._eventSpace + 1;
     var eventCount = this._eventCount;
     for( var i = 0; i < eventCount; ++i ) {
         if( this[j] === eventName ) {
@@ -240,14 +249,14 @@ function EventEmitter$_indexOfEvent( eventName ) {
 
 EventEmitter.prototype._nextFreeIndex =
 function EventEmitter$_nextFreeIndex( eventName ) {
-    var eventSpace = this._eventSpace;
+    var eventSpace = this._eventSpace + 1;
     var eventCount = this._eventCount;
     var length = this._eventLength;
-    //eventcount is not good length
+
     for( var i = 0; i < length; i += eventSpace ) {
         if( this[i] === eventName ) {
             var k = i + 1;
-            var len = i + eventSpace + 1;
+            var len = i + eventSpace;
             for( ; k < len; ++k ) {
                 if( this[k] === void 0 ) {
                     return k;
@@ -273,3 +282,26 @@ EventEmitter.prototype._initSpace = function EventEmitter$_initSpace() {
         this[i] = void 0;
     }
 };
+
+
+var a = new EventEmitter();
+
+function luls() {
+    console.log("hi");
+}
+
+a.addListener("lol1", luls);
+a.addListener("lol1", luls);
+a.addListener("lol2", luls);
+a.addListener("lol2", luls);
+a.addListener("lol3", luls);
+a.addListener("lol3", luls);
+a.addListener("lol4", luls);
+a.addListener("lol4", luls);
+a.addListener("lol5", luls);
+a.addListener("lol5", luls);
+a.addListener("lol6", luls);
+a.addListener("lol6", luls);
+a[16] = a[17] = void 0
+a.addListener("lol7", luls);
+a.addListener("lol7", luls);
