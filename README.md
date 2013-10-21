@@ -1,0 +1,4 @@
+FastEmitter
+===========
+
+Fast event emitter
