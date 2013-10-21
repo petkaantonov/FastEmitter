@@ -149,7 +149,7 @@ function EventEmitter$removeListener( type, listener ) {
     for( ; k < len; ++k ) {
         var item = this[k];
         if( item === listener ||
-            ( item !== void 0 && item.listener === listener ) {
+            ( item !== void 0 && item.listener === listener ) ) {
             skips++;
             this[k] = void 0;
             if( removeListenerIndex === -2 ) {
