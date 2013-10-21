@@ -1,0 +1,39 @@
+{
+  "name": "FastEmitter",
+  "description": "A fast implementation of the node EventEmitter core module",
+  "version": "0.0.1-0",
+  "keywords": [
+    "promise",
+    "performance",
+    "fast",
+    "promises-aplus",
+    "async"
+  ],
+  "scripts": {
+    "test": "grunt test"
+  },
+  "homepage": "https://github.com/petkaantonov/FastEmitter",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/petkaantonov/FastEmitter.git"
+  },
+  "bugs": {
+    "url": "http://github.com/petkaantonov/FastEmitter/issues"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "Petka Antonov",
+    "email": "petka_antonov@hotmail.com",
+    "url": "http://github.com/petkaantonov/"
+  },
+  "devDependencies": {
+    "grunt": "~0.4.1",
+    "grunt-contrib-jshint": "~0.6.4",
+    "grunt-contrib-watch": "~0.5.3",
+    "grunt-contrib-concat": "~0.3.0",
+    "acorn": "~0.3.1",
+    "mocha": "~1.12.1"
+  },
+  "readmeFilename": "README.md",
+  "main": "./fastemitter.js"
+}
