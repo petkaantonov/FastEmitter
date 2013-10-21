@@ -83,6 +83,7 @@ EventEmitter.prototype.emit = function EventEmitter$emit( type ) {
 //TODO emit addListener
 //TODO check memory leak
 EventEmitter.prototype.addListener =
+EventEmitter.prototype.on =
 function EventEmitter$addListener( type, listener ) {
     if( typeof listener !== "function" )
         throw new TypeError('listener must be a function');
@@ -92,6 +93,36 @@ function EventEmitter$addListener( type, listener ) {
     var index = this._nextFreeIndex( type );
     this[index] = listener;
     return this;
+};
+
+EventEmitter.prototype.once = function EventEmitter$once( type, listener ) {
+    if( typeof listener !== "function" )
+        throw new TypeError('listener must be a function');
+
+    return this.addListener( type, function s() {
+        this.removeListener( type, s );
+        return listener.apply( this, arguments );
+    });
+};
+
+EventEmitter.prototype.listeners = function EventEmitter$listeners( type ) {
+    if( typeof type !== "string")
+        type = ( "" + type );
+
+    var index = this._indexOfEvent( type );
+    if( index < 0 ) {
+        return [];
+    }
+    var ret = [];
+    var k = index + 1;
+    var m = k + this._eventSpace + 1;
+    for( ; k < m; ++k ) {
+        if( this[k] === void 0 ) {
+            break;
+        }
+        ret.push( this[k] );
+    }
+    return ret;
 };
 
 //TODO emit removeListener
@@ -293,3 +324,15 @@ EventEmitter.prototype._initSpace = function EventEmitter$_initSpace() {
         this[i] = void 0;
     }
 };
+
+EventEmitter.listenerCount = function( emitter, type ) {
+    if( typeof type !== "string")
+        type = ( "" + type );
+
+    var total = 0;
+    var len = emitter._eventLength;
+    for( var i = 0; i < len; ++i ) {
+        if( typeof emitter[i] === "function" ) total++;
+    }
+    return len;
+}
