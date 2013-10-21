@@ -31,8 +31,10 @@
     "grunt-contrib-jshint": "~0.6.4",
     "grunt-contrib-watch": "~0.5.3",
     "grunt-contrib-concat": "~0.3.0",
+    "grunt-bump": "0.0.11",
     "acorn": "~0.3.1",
-    "mocha": "~1.12.1"
+    "mocha": "~1.12.1",
+    "common": "~0.2.5"
   },
   "readmeFilename": "README.md",
   "main": "./fastemitter.js"

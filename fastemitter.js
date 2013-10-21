@@ -1,5 +1,29 @@
+/* jshint -W014, -W116, -W106, -W064, -W097 */
+/* global process */
+/**
+ * @preserve Copyright (c) 2013 Petka Antonov
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:</p>
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
 "use strict";
 
+//TODO a single identity must not be able to be passed multiple times
 var INITIAL_DISTINCT_HANDLER_TYPES = 6;
 var domain;
 
@@ -11,17 +35,7 @@ function EventEmitter() {
             this.domain = domain.active;
         }
     }
-    //The reserved space for handlers of a distinct event type
-    this._eventSpace = 1;
-    //The amount of unique event types currently registered.
-    //Might not be the actual amount
-    this._eventCount = 0;
-    //The length of the buffer where everything is stored
-    //Initially reserves space for INITIAL_DISTINCT_HANDLER_TYPES
-    //distinct event types
-    this._eventLength = ( ( this._eventSpace + 1 ) *
-                            INITIAL_DISTINCT_HANDLER_TYPES ) | 0;
-    this._initSpace();
+    this._maybeInit();
 }
 
 EventEmitter.EventEmitter = EventEmitter;
@@ -31,6 +45,7 @@ EventEmitter.usingDomains = false;
 EventEmitter.prototype.emit = function EventEmitter$emit( type, a1, a2 ) {
     if( type === void 0 ) return false;
     if( typeof type !== "string") type = ( "" + type );
+    this._maybeInit();
 
     var index = this._indexOfEvent( type );
 
@@ -42,13 +57,14 @@ EventEmitter.prototype.emit = function EventEmitter$emit( type, a1, a2 ) {
     }
 
     var k = index + 1;
-    var len = k + this._eventSpace + 1;
+    var len = k + this._eventSpace;
     var argc = arguments.length;
 
-    if( this.domain !== null && this !== process ) {
+    if( this.domain != null && this !== process ) {
         this.domain.enter();
     }
 
+    var eventsWereFired = false;
     if( argc > 3 ) {
         var args = new Array( argc - 1 );
         for( var i = 0, len = args.length; i < len; ++i ) {
@@ -64,7 +80,7 @@ EventEmitter.prototype.emit = function EventEmitter$emit( type, a1, a2 ) {
         }
     }
 
-    if( this.domain !== null && this !== process ) {
+    if( this.domain != null && this !== process ) {
         this.domain.exit();
     }
     return eventsWereFired;
@@ -78,10 +94,11 @@ EventEmitter.prototype.addListener =
 EventEmitter.prototype.on =
 function EventEmitter$addListener( type, listener ) {
     if( typeof listener !== "function" )
-        throw new TypeError('listener must be a function');
+        throw new TypeError("listener must be a function");
     if( typeof type !== "string" )
         type = ( "" + type );
 
+    this._maybeInit();
     this._emitNew( type, listener );
     var index = this._nextFreeIndex( type );
     this[index] = listener;
@@ -90,10 +107,11 @@ function EventEmitter$addListener( type, listener ) {
 
 EventEmitter.prototype.once = function EventEmitter$once( type, listener ) {
     if( typeof listener !== "function" )
-        throw new TypeError('listener must be a function');
+        throw new TypeError("listener must be a function");
     if( typeof type !== "string" )
         type = ( "" + type );
 
+    this._maybeInit();
     this._emitNew( type, listener );
     var index = this._nextFreeIndex( type );
     function s() {
@@ -109,13 +127,14 @@ EventEmitter.prototype.listeners = function EventEmitter$listeners( type ) {
     if( typeof type !== "string")
         type = ( "" + type );
 
+    this._maybeInit();
     var index = this._indexOfEvent( type );
     if( index < 0 ) {
         return [];
     }
     var ret = [];
     var k = index + 1;
-    var m = k + this._eventSpace + 1;
+    var m = k + this._eventSpace;
     for( ; k < m; ++k ) {
         if( this[k] === void 0 ) {
             break;
@@ -130,10 +149,11 @@ EventEmitter.prototype.listeners = function EventEmitter$listeners( type ) {
 EventEmitter.prototype.removeListener =
 function EventEmitter$removeListener( type, listener ) {
     if( typeof listener !== "function" )
-        throw new TypeError('listener must be a function');
+        throw new TypeError("listener must be a function");
     if( typeof type !== "string")
         type = ( "" + type );
 
+    this._maybeInit();
     var index = this._indexOfEvent( type );
 
     if( index < 0 ) {
@@ -142,7 +162,7 @@ function EventEmitter$removeListener( type, listener ) {
     var eventSpace = this._eventSpace;
     var k = index + 1;
     var j = k;
-    var len = k + eventSpace + 1;
+    var len = k + eventSpace;
     var skips = 0;
     var removeListenerIndex = -2;
 
@@ -175,6 +195,7 @@ function EventEmitter$removeListener( type, listener ) {
 EventEmitter.prototype.removeAllListeners =
 function EventEmitter$removeAllListeners( type ) {
     if( type === void 0 ) {
+        this._maybeInit();
         if( this._indexOfEvent("removeListener") >= 0 ) {
             this._emitRemoveAll( void 0 );
         }
@@ -202,12 +223,16 @@ function EventEmitter$removeAllListeners( type ) {
     return this;
 };
 
+//TODO Count
 EventEmitter.listenerCount = function( emitter, type ) {
     if( typeof type !== "string")
         type = ( "" + type );
 
     var total = 0;
     var len = emitter._eventLength;
+    if( typeof len !== "undefined" ) {
+        return 0;
+    }
     for( var i = 0; i < len; ++i ) {
         if( typeof emitter[i] === "function" ) total++;
     }
@@ -222,7 +247,6 @@ function EventEmitter$_resizeForHandlers() {
     }
     var oldEventSpace = this._eventSpace;
     var newEventSpace = this._eventSpace = ( oldEventSpace * 2 + 2 );
-    var eventCount = this._eventCount;
     var length = this._eventLength = ( ( newEventSpace + 1 ) *
             Math.max( this._eventCount, INITIAL_DISTINCT_HANDLER_TYPES ) ) | 0;
 
@@ -329,7 +353,7 @@ function EventEmitter$_emitRemoveAll( type ) {
             if( listener === void 0 ) {
                 break;
             }
-            this._emitRemove( emitType, listener.listener
+            this._emitRemove( type, listener.listener
                     ? listener.listener
                     : listener );
         }
@@ -364,7 +388,6 @@ function EventEmitter$_indexOfEvent( eventName ) {
 EventEmitter.prototype._nextFreeIndex =
 function EventEmitter$_nextFreeIndex( eventName ) {
     var eventSpace = this._eventSpace + 1;
-    var eventCount = this._eventCount;
     var length = this._eventLength;
 
     for( var i = 0; i < length; i += eventSpace ) {
@@ -392,7 +415,9 @@ function EventEmitter$_nextFreeIndex( eventName ) {
 
 EventEmitter.prototype._emitError = function EventEmitter$_emitError( e ) {
     if( this.domain != null ) {
-        if( !e ) e = new TypeError('Uncaught, unspecified "error" event.');
+        if( !e ) {
+            e = new TypeError("Uncaught, unspecified 'error' event.");
+        }
         e.domainEmitter = this;
         e.domain = this.domain;
         e.domainThrown = false;
@@ -402,31 +427,53 @@ EventEmitter.prototype._emitError = function EventEmitter$_emitError( e ) {
         throw e;
     }
     else {
-        throw new TypeError('Uncaught, unspecified "error" event.');
+        throw new TypeError("Uncaught, unspecified 'error' event.");
     }
 };
 
 EventEmitter.prototype._emitApply =
 function EventEmitter$_emitApply( index, length, args ) {
     var eventsWereFired = false;
+    var multipleListeners = ( length - index ) > 1;
+    var next = void 0;
     for( ; index < length; ++index ) {
         if( this[index] === void 0 ) {
             break;
         }
         eventsWereFired = true;
+        if( multipleListeners && ( ( index + 1 ) < length ) ) {
+            next = this[ index + 1 ];
+        }
         this[index].apply( this, args );
+        //The current listener was removed from its own callback
+        if( multipleListeners && ( ( index + 1 ) < length ) &&
+            next !== void 0 && next === this[ index ] ) {
+            index--;
+            length--;
+        }
     }
     return eventsWereFired;
 };
 
 EventEmitter.prototype._emit0 = function EventEmitter$_emit0( index, length ) {
     var eventsWereFired = false;
+    var multipleListeners = ( length - index ) > 1;
+    var next = void 0;
     for( ; index < length; ++index ) {
         if( this[index] === void 0 ) {
             break;
         }
         eventsWereFired = true;
+        if( multipleListeners && ( ( index + 1 ) < length ) ) {
+            next = this[ index + 1 ];
+        }
         this[index]();
+        //The current listener was removed from its own callback
+        if( multipleListeners && ( ( index + 1 ) < length ) &&
+            next !== void 0 && next === this[ index ] ) {
+            index--;
+            length--;
+        }
     }
     return eventsWereFired;
 };
@@ -434,12 +481,23 @@ EventEmitter.prototype._emit0 = function EventEmitter$_emit0( index, length ) {
 EventEmitter.prototype._emit1 =
 function EventEmitter$_emit1( index, length, a1 ) {
     var eventsWereFired = false;
+    var multipleListeners = ( length - index ) > 1;
+    var next = void 0;
     for( ; index < length; ++index ) {
         if( this[index] === void 0 ) {
             break;
         }
         eventsWereFired = true;
+        if( multipleListeners && ( ( index + 1 ) < length ) ) {
+            next = this[ index + 1 ];
+        }
         this[index]( a1 );
+        //The current listener was removed from its own callback
+        if( multipleListeners && ( ( index + 1 ) < length ) &&
+            next !== void 0 && next === this[ index ] ) {
+            index--;
+            length--;
+        }
     }
     return eventsWereFired;
 };
@@ -447,14 +505,42 @@ function EventEmitter$_emit1( index, length, a1 ) {
 EventEmitter.prototype._emit2 =
 function EventEmitter$_emit2( index, length, a1, a2 ) {
     var eventsWereFired = false;
+    var multipleListeners = ( length - index ) > 1;
+    var next = void 0;
     for( ; index < length; ++index ) {
         if( this[index] === void 0 ) {
             break;
         }
         eventsWereFired = true;
+        if( multipleListeners && ( ( index + 1 ) < length ) ) {
+            next = this[ index + 1 ];
+        }
         this[index]( a1, a2 );
+        //The current listener was removed from its own callback
+        if( multipleListeners && ( ( index + 1 ) < length ) &&
+            next !== void 0 && next === this[ index ] ) {
+            index--;
+            length--;
+        }
     }
     return eventsWereFired;
+};
+
+EventEmitter.prototype._maybeInit = function EventEmitter$_maybeInit() {
+    if( typeof this._eventLength !== "number" ) {
+        //The reserved space for handlers of a distinct event type
+        this._eventSpace = 1;
+        //The amount of unique event types currently registered.
+        //Might not be the actual amount
+        this._eventCount = 0;
+        //The length of the buffer where everything is stored
+        //Initially reserves space for INITIAL_DISTINCT_HANDLER_TYPES
+        //distinct event types
+        this._eventLength = ( ( this._eventSpace + 1 ) *
+                                INITIAL_DISTINCT_HANDLER_TYPES ) | 0;
+        this._initSpace();
+    }
+
 };
 
 EventEmitter.prototype._initSpace = function EventEmitter$_initSpace() {
@@ -463,3 +549,5 @@ EventEmitter.prototype._initSpace = function EventEmitter$_initSpace() {
         this[i] = void 0;
     }
 };
+
+module.exports = EventEmitter;
