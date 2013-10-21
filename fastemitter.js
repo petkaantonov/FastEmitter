@@ -22,8 +22,11 @@
  * THE SOFTWARE.
  */
 "use strict";
+//TODO Prevent passing the same function identity multiple times as a listener
+//for the same event
 
-//TODO a single identity must not be able to be passed multiple times
+//TODO maxListeners API
+
 var INITIAL_DISTINCT_HANDLER_TYPES = 6;
 var domain;
 
@@ -86,10 +89,6 @@ EventEmitter.prototype.emit = function EventEmitter$emit( type, a1, a2 ) {
     return eventsWereFired;
 };
 
-
-
-//TODO emit addListener
-//TODO check memory leak
 EventEmitter.prototype.addListener =
 EventEmitter.prototype.on =
 function EventEmitter$addListener( type, listener ) {
@@ -144,8 +143,6 @@ EventEmitter.prototype.listeners = function EventEmitter$listeners( type ) {
     return ret;
 };
 
-//TODO emit removeListener
-//TODO check memory leak
 EventEmitter.prototype.removeListener =
 function EventEmitter$removeListener( type, listener ) {
     if( typeof listener !== "function" )
@@ -223,18 +220,31 @@ function EventEmitter$removeAllListeners( type ) {
     return this;
 };
 
-//TODO Count
 EventEmitter.listenerCount = function( emitter, type ) {
-    if( typeof type !== "string")
-        type = ( "" + type );
+    if( !( emitter instanceof EventEmitter ) ) {
+        throw new TypeError( "Not an event emitter" );
+    }
 
     var total = 0;
     var len = emitter._eventLength;
-    if( typeof len !== "undefined" ) {
+    if( typeof len !== "number" ) {
         return 0;
     }
-    for( var i = 0; i < len; ++i ) {
-        if( typeof emitter[i] === "function" ) total++;
+    if( type === void 0 ) {
+        for( var i = 0; i < len; ++i ) {
+            if( typeof emitter[i] === "function" ) total++;
+        }
+    }
+    else {
+        if( typeof type !== "string")
+            type = ( "" + type );
+        var index = this._indexOfEvent( type ) + 1;
+        var eventSpace = this._eventSpace;
+        var k = index;
+        var m = index + eventSpace;
+        for( ; k < m; ++k ) {
+            if( typeof emitter[k] === "function" ) total++;
+        }
     }
     return total;
 };
