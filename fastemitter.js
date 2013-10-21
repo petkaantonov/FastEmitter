@@ -1,84 +1,77 @@
 "use strict";
 
+var INITIAL_DISTINCT_HANDLER_TYPES = 6;
+var domain;
+
 function EventEmitter() {
     this.domain = null;
+    if( EventEmitter.usingDomains ) {
+        domain = domain || require("domain");
+        if( domain.active && !(this instanceof domain.Domain) ) {
+            this.domain = domain.active;
+        }
+    }
     //The reserved space for handlers of a distinct event type
-    this._eventSpace = 4;
+    this._eventSpace = 1;
     //The amount of unique event types currently registered.
     //Might not be the actual amount
     this._eventCount = 0;
     //The length of the buffer where everything is stored
-    //Initially reserves space for 6 distinct event types
-    this._eventLength = ( ( this._eventSpace + 1 ) * 6 ) | 0;
+    //Initially reserves space for INITIAL_DISTINCT_HANDLER_TYPES
+    //distinct event types
+    this._eventLength = ( ( this._eventSpace + 1 ) *
+                            INITIAL_DISTINCT_HANDLER_TYPES ) | 0;
     this._initSpace();
 }
 
-EventEmitter.prototype.emit = function EventEmitter$emit( type ) {
-    if( type === void 0 ) return false;
-    if( typeof type !== "string")
-        type = ( "" + type );
+EventEmitter.EventEmitter = EventEmitter;
 
+EventEmitter.usingDomains = false;
+
+EventEmitter.prototype.emit = function EventEmitter$emit( type, a1, a2 ) {
+    if( type === void 0 ) return false;
+    if( typeof type !== "string") type = ( "" + type );
     //TODO "error" event stuff
 
     var index = this._indexOfEvent( type );
 
     if( index < 0 ) {
+        if( type === "error" ) {
+            this._emitError( a1 );
+        }
         return false;
     }
 
-    var eventSpace = this._eventSpace;
     var k = index + 1;
-    var len = k + eventSpace + 1;
-    var eventsWereFired = false;
+    var len = k + this._eventSpace + 1;
+    var argc = arguments.length;
 
-    if( arguments.length > 3 ) {
-        var args = new Array( arguments.length - 1 );
+    if( this.domain !== null && this !== process ) {
+        this.domain.enter();
+    }
+
+    if( argc > 3 ) {
+        var args = new Array( argc - 1 );
         for( var i = 0, len = args.length; i < len; ++i ) {
             args[i] = arguments[i+1];
         }
+        eventsWereFired = this._emitApply( k, len, args );
+    }
+    else {
+        switch( argc ) {
+        case 1: eventsWereFired = this._emit0( k, len ); break;
+        case 2: eventsWereFired = this._emit1( k, len, a1 ); break;
+        case 3: eventsWereFired = this._emit2( k, len, a1, a2 ); break;
+        }
     }
 
-    switch( arguments.length ) {
-    case 1:
-        for( ; k < len; ++k ) {
-            if( this[k] === void 0 ) {
-                break;
-            }
-            eventsWereFired = true;
-            this[k]();
-        }
-        break;
-    case 2:
-        for( ; k < len; ++k ) {
-            if( this[k] === void 0 ) {
-                break;
-            }
-            eventsWereFired = true;
-            this[k]( arguments[1] );
-        }
-
-        break;
-    case 3:
-        for( ; k < len; ++k ) {
-            if( this[k] === void 0 ) {
-                break;
-            }
-            eventsWereFired = true;
-            this[k]( arguments[1], arguments[2] );
-        }
-        break;
-    default:
-        for( ; k < len; ++k ) {
-            if( this[k] === void 0 ) {
-                break;
-            }
-            eventsWereFired = true;
-            this[k].apply( this, args );
-        }
-        break;
+    if( this.domain !== null && this !== process ) {
+        this.domain.exit();
     }
     return eventsWereFired;
 };
+
+
 
 //TODO emit addListener
 //TODO check memory leak
@@ -188,6 +181,18 @@ function EventEmitter$removeAllListeners( type ) {
     return this;
 };
 
+EventEmitter.listenerCount = function( emitter, type ) {
+    if( typeof type !== "string")
+        type = ( "" + type );
+
+    var total = 0;
+    var len = emitter._eventLength;
+    for( var i = 0; i < len; ++i ) {
+        if( typeof emitter[i] === "function" ) total++;
+    }
+    return total;
+};
+
 EventEmitter.prototype._resizeForHandlers =
 function EventEmitter$_resizeForHandlers() {
     var tmp = new Array( this._eventLength );
@@ -198,7 +203,7 @@ function EventEmitter$_resizeForHandlers() {
     var newEventSpace = this._eventSpace = ( oldEventSpace * 2 + 2 );
     var eventCount = this._eventCount;
     var length = this._eventLength = ( ( newEventSpace + 1 ) *
-            Math.max( this._eventCount, 6 ) ) | 0;
+            Math.max( this._eventCount, INITIAL_DISTINCT_HANDLER_TYPES ) ) | 0;
 
     newEventSpace++;
     oldEventSpace++;
@@ -266,7 +271,7 @@ function EventEmitter$_resizeForEvents() {
     }
     var oldLength = this._eventLength;
     var newLength = this._eventLength = ( ( this._eventSpace + 1 ) *
-            Math.max( this._eventCount * 2, 6 ) ) | 0;
+            Math.max( this._eventCount * 2, INITIAL_DISTINCT_HANDLER_TYPES ) );
 
     console.log(oldLength, newLength);
     for( var i = oldLength; i < newLength; ++i ) {
@@ -318,21 +323,76 @@ function EventEmitter$_nextFreeIndex( eventName ) {
     return this._nextFreeIndex( eventName );
 };
 
+EventEmitter.prototype._emitError = function EventEmitter$_emitError( e ) {
+    if( this.domain != null ) {
+        if( !e ) e = new TypeError('Uncaught, unspecified "error" event.');
+        e.domainEmitter = this;
+        e.domain = this.domain;
+        e.domainThrown = false;
+        this.domain.emit( "error", e );
+    }
+    else if( e instanceof Error ) {
+        throw e;
+    }
+    else {
+        throw new TypeError('Uncaught, unspecified "error" event.');
+    }
+};
+
+EventEmitter.prototype._emitApply =
+function EventEmitter$_emitApply( index, length, args ) {
+    var eventsWereFired = false;
+    for( ; index < length; ++index ) {
+        if( this[index] === void 0 ) {
+            break;
+        }
+        eventsWereFired = true;
+        this[index].apply( this, args );
+    }
+    return eventsWereFired;
+};
+
+EventEmitter.prototype._emit0 = function EventEmitter$_emit0( index, length ) {
+    var eventsWereFired = false;
+    for( ; index < length; ++index ) {
+        if( this[index] === void 0 ) {
+            break;
+        }
+        eventsWereFired = true;
+        this[index]();
+    }
+    return eventsWereFired;
+};
+
+EventEmitter.prototype._emit1 =
+function EventEmitter$_emit1( index, length, a1 ) {
+    var eventsWereFired = false;
+    for( ; index < length; ++index ) {
+        if( this[index] === void 0 ) {
+            break;
+        }
+        eventsWereFired = true;
+        this[index]( a1 );
+    }
+    return eventsWereFired;
+};
+
+EventEmitter.prototype._emit2 =
+function EventEmitter$_emit2( index, length, a1, a2 ) {
+    var eventsWereFired = false;
+    for( ; index < length; ++index ) {
+        if( this[index] === void 0 ) {
+            break;
+        }
+        eventsWereFired = true;
+        this[index]( a1, a2 );
+    }
+    return eventsWereFired;
+};
+
 EventEmitter.prototype._initSpace = function EventEmitter$_initSpace() {
     var len = this._eventLength;
     for( var i = 0; i < len; ++i ) {
         this[i] = void 0;
     }
 };
-
-EventEmitter.listenerCount = function( emitter, type ) {
-    if( typeof type !== "string")
-        type = ( "" + type );
-
-    var total = 0;
-    var len = emitter._eventLength;
-    for( var i = 0; i < len; ++i ) {
-        if( typeof emitter[i] === "function" ) total++;
-    }
-    return len;
-}
