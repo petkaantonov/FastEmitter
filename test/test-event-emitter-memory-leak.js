@@ -23,15 +23,17 @@
 // that we didn't leak the event names.
 var assert = require('assert');
 var events = require('../fastemitter.js');
+assert.equal(typeof gc, 'function', 'Run this test with --expose-gc');
+gc();
 
 var e = new events.EventEmitter();
+var before = process.memoryUsage().heapUsed;
 
-for (var i = 0; i < 60; ++i) {
+for (var i = 0; i < 2.5e5; ++i) {
   var name = 'a-pretty-long-event-name-' + i;
   e.on(name, assert.fail);
   e.removeListener(name, assert.fail);
 }
-
-
-assert(e._eventLength > 0 );
-assert(e._eventLength < 60 );
+gc();
+var after = process.memoryUsage().heapUsed;
+assert(after - before < 1024*1024, 'EventEmitter leaks event names.');
