@@ -273,7 +273,7 @@ function EventEmitter$_resizeForHandlers() {
     }
     var oldEventSpace = this._eventSpace;
     var newEventSpace = this._eventSpace = ( oldEventSpace * 2 + 2 );
-    var length = this._eventLength = ( ( newEventSpace + 1 ) *
+    var length = events.length = ( ( newEventSpace + 1 ) *
             Math.max( this._eventCount, INITIAL_DISTINCT_HANDLER_TYPES ) ) | 0;
 
     newEventSpace++;
@@ -315,7 +315,7 @@ EventEmitter.prototype._doCompact = function EventEmitter$_doCompact() {
     }
     if( !shouldCompact ) return false;
     j = 0;
-    var len = this._eventLength;
+    var len = events.length;
     var skips = 0;
     for( var i = 0; i < len; i += eventSpace ) {
         var listener = events[ i + 1 ];
@@ -341,11 +341,10 @@ function EventEmitter$_resizeForEvents() {
     if( this._doCompact() ) {
         return;
     }
-    var oldLength = this._eventLength;
-    var newLength = this._eventLength = ( ( this._eventSpace + 1 ) *
-            Math.max( this._eventCount * 2, INITIAL_DISTINCT_HANDLER_TYPES ) );
-
     var events = this._events;
+    var oldLength = events.length;
+    var newLength = ( ( this._eventSpace + 1 ) *
+            Math.max( this._eventCount * 2, INITIAL_DISTINCT_HANDLER_TYPES ) );
     for( var i = oldLength; i < newLength; ++i ) {
         events.push( void 0 );
     }
@@ -355,7 +354,7 @@ EventEmitter.prototype._emitRemoveAll =
 function EventEmitter$_emitRemoveAll( type ) {
     var events = this._events;
     if( type === void 0 ) {
-        var len = this._eventLength;
+        var len = events.length;
         var eventSpace = this._eventSpace + 1;
         for( var i = 0; i < len; i += eventSpace ) {
             var emitType = events[i];
@@ -418,9 +417,8 @@ function EventEmitter$_indexOfEvent( eventName ) {
 EventEmitter.prototype._nextFreeIndex =
 function EventEmitter$_nextFreeIndex( eventName ) {
     var eventSpace = this._eventSpace + 1;
-    var length = this._eventLength;
     var events = this._events;
-
+    var length = events.length;
     for( var i = 0; i < length; i += eventSpace ) {
         var event = events[i];
         if( event === eventName ) {
