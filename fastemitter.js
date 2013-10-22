@@ -31,6 +31,7 @@ var INITIAL_DISTINCT_HANDLER_TYPES = 6;
 var domain;
 var Array = global.Array;
 var isArray = Array.isArray;
+var objectCreate = Object.create;
 
 function EventEmitter() {
     this.domain = null;
@@ -46,6 +47,16 @@ function EventEmitter() {
 EventEmitter.EventEmitter = EventEmitter;
 
 EventEmitter.usingDomains = false;
+EventEmitter.defaultMaxListeners = 10;
+
+EventEmitter.prototype.setMaxListeners =
+function EventEmitter$setMaxListeners(n) {
+    if( ( n >>> 0 ) !== n ) {
+        throw TypeError("n must be a positive integer");
+    }
+    this._maxListeners = n;
+    return this;
+};
 
 EventEmitter.prototype.emit = function EventEmitter$emit( type, a1, a2 ) {
     if( type === void 0 ) return false;
@@ -414,6 +425,34 @@ function EventEmitter$_indexOfEvent( eventName ) {
     return -1;
 };
 
+EventEmitter.prototype._warn =
+function EventEmitter$_warn( eventName, listenerCount ) {
+    if( !this.__warnMap ) {
+        this.__warnMap = objectCreate( null );
+    }
+    if( !this.__warnMap[eventName] ) {
+        this.__warnMap[eventName] = true;
+        console.error( "(node) warning: possible EventEmitter memory " +
+                    "leak detected. %d listeners added. " +
+                    "Use emitter.setMaxListeners() to increase limit.",
+                    listenerCount );
+        console.trace();
+    }
+};
+
+EventEmitter.prototype._checkListenerLeak =
+function EventEmitter$_checkListenerLeak( eventName, listenerCount ) {
+    var max = this._maxListeners;
+    if( max < 0 ) {
+        max = EventEmitter.defaultMaxListeners;
+    }
+    if( (max >>> 0) === max && max > 0 ) {
+        if( listenerCount > max ) {
+            this._warn( eventName, listenerCount );
+        }
+    }
+};
+
 EventEmitter.prototype._nextFreeIndex =
 function EventEmitter$_nextFreeIndex( eventName ) {
     var eventSpace = this._eventSpace + 1;
@@ -426,12 +465,14 @@ function EventEmitter$_nextFreeIndex( eventName ) {
             var len = i + eventSpace;
             for( ; k < len; ++k ) {
                 if( events[k] === void 0 ) {
+                    this._checkListenerLeak( eventName, k - i );
                     return k;
                 }
             }
             this._resizeForHandlers();
             return this._nextFreeIndex( eventName );
         }
+        //Don't check leaks when there is 1 listener
         else if( event === void 0 ) {
             events[i] = eventName;
             this._eventCount++;
@@ -624,6 +665,9 @@ function EventEmitter$_emit2( index, length, a1, a2 ) {
 
 EventEmitter.prototype._maybeInit = function EventEmitter$_maybeInit() {
     if( !isArray( this._events ) ) {
+        if( ( this._maxListeners >>> 0 ) !== this._maxListeners ) {
+            this._maxListeners = -1;
+        }
         this._eventSpace = 1;
         this._eventCount = 0;
         var events = this._events = new Array( ( ( this._eventSpace + 1 ) *
