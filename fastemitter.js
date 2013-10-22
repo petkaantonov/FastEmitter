@@ -1,5 +1,5 @@
-/* jshint -W014, -W116, -W106, -W064, -W097 */
-/* global process */
+/* jshint -W014, -W116, -W106, -W064, -W097, -W079 */
+/* global process, global */
 /**
  * @preserve Copyright (c) 2013 Petka Antonov
  *
@@ -29,6 +29,8 @@
 
 var INITIAL_DISTINCT_HANDLER_TYPES = 6;
 var domain;
+var Array = global.Array;
+var isArray = Array.isArray;
 
 function EventEmitter() {
     this.domain = null;
@@ -107,7 +109,8 @@ function EventEmitter$addListener( type, listener ) {
     this._maybeInit();
     this._emitNew( type, listener );
     var index = this._nextFreeIndex( type );
-    this[index] = listener;
+    var events = this._events;
+    events[index] = listener;
     return this;
 };
 
@@ -120,11 +123,12 @@ EventEmitter.prototype.once = function EventEmitter$once( type, listener ) {
     this._maybeInit();
     this._emitNew( type, listener );
     var index = this._nextFreeIndex( type );
+    var events = this._events;
     function s() {
         this.removeListener( type, s );
         return listener.apply( this, arguments );
     }
-    this[index] = s;
+    events[index] = s;
     s.listener = listener;
     return this;
 };
@@ -141,11 +145,12 @@ EventEmitter.prototype.listeners = function EventEmitter$listeners( type ) {
     var ret = [];
     var k = index + 1;
     var m = k + this._eventSpace;
+    var events = this._events;
     for( ; k < m; ++k ) {
-        if( this[k] === void 0 ) {
+        if( events[k] === void 0 ) {
             break;
         }
-        ret.push( this[k] );
+        ret.push( events[k] );
     }
     return ret;
 };
@@ -163,6 +168,7 @@ function EventEmitter$removeListener( type, listener ) {
     if( index < 0 ) {
         return this;
     }
+    var events = this._events;
     var eventSpace = this._eventSpace;
     var k = index + 1;
     var j = k;
@@ -171,11 +177,11 @@ function EventEmitter$removeListener( type, listener ) {
     var removeListenerIndex = -2;
 
     for( ; k < len; ++k ) {
-        var item = this[k];
+        var item = events[k];
         if( item === listener ||
             ( item !== void 0 && item.listener === listener ) ) {
             skips++;
-            this[k] = void 0;
+            events[k] = void 0;
             if( removeListenerIndex === -2 ) {
                 removeListenerIndex = this._indexOfEvent("removeListener");
             }
@@ -184,12 +190,12 @@ function EventEmitter$removeListener( type, listener ) {
             }
         }
         else {
-            this[ j++ ] = item;
+            events[ j++ ] = item;
         }
     }
 
     for( k = len - skips; k < len; ++k ) {
-        this[k] = void 0;
+        events[k] = void 0;
     }
 
 
@@ -198,12 +204,13 @@ function EventEmitter$removeListener( type, listener ) {
 
 EventEmitter.prototype.removeAllListeners =
 function EventEmitter$removeAllListeners( type ) {
+    this._maybeInit();
     if( type === void 0 ) {
-        this._maybeInit();
         if( this._indexOfEvent("removeListener") >= 0 ) {
             this._emitRemoveAll( void 0 );
         }
-        this._initSpace();
+        var events = this._events = new Array( this._events.length );
+        this._initSpace( events );
         return this;
     }
     if( typeof type !== "string")
@@ -213,15 +220,15 @@ function EventEmitter$removeAllListeners( type ) {
     if( index < 0 ) {
         return this;
     }
-
+    var events = this._events;
     var eventSpace = this._eventSpace;
     var k = index + 1;
-    var len = k + eventSpace + 1;
+    var len = k + eventSpace;
     if( this._indexOfEvent("removeListener") >= 0 ) {
         this._emitRemoveAll( type );
     }
     for( ; k < len; ++k ) {
-        this[k] = void 0;
+        events[k] = void 0;
     }
 
     return this;
@@ -233,13 +240,14 @@ EventEmitter.listenerCount = function( emitter, type ) {
     }
 
     var total = 0;
-    var len = emitter._eventLength;
-    if( typeof len !== "number" ) {
+    var events = emitter._events;
+    if( !isArray( events ) ) {
         return 0;
     }
+    var len = events.length;
     if( type === void 0 ) {
         for( var i = 0; i < len; ++i ) {
-            if( typeof emitter[i] === "function" ) total++;
+            if( typeof events[i] === "function" ) total++;
         }
     }
     else {
@@ -250,7 +258,7 @@ EventEmitter.listenerCount = function( emitter, type ) {
         var k = index;
         var m = index + eventSpace;
         for( ; k < m; ++k ) {
-            if( typeof emitter[k] === "function" ) total++;
+            if( typeof events[k] === "function" ) total++;
         }
     }
     return total;
@@ -258,13 +266,14 @@ EventEmitter.listenerCount = function( emitter, type ) {
 
 EventEmitter.prototype._resizeForHandlers =
 function EventEmitter$_resizeForHandlers() {
-    var tmp = new Array( this._eventLength );
+    var events = this._events;
+    var tmp = new Array( events.length );
     for( var i = 0, len = tmp.length; i < len; ++i ) {
-        tmp[i] = this[i];
+        tmp[i] = events[i];
     }
     var oldEventSpace = this._eventSpace;
     var newEventSpace = this._eventSpace = ( oldEventSpace * 2 + 2 );
-    var length = this._eventLength = ( ( newEventSpace + 1 ) *
+    var length = events.length = ( ( newEventSpace + 1 ) *
             Math.max( this._eventCount, INITIAL_DISTINCT_HANDLER_TYPES ) ) | 0;
 
     newEventSpace++;
@@ -277,14 +286,14 @@ function EventEmitter$_resizeForHandlers() {
         var m = k + oldEventSpace;
         var n = 0;
         for( ; k < m; ++k ) {
-            this[i + n] = tmp[k];
+            events[i + n] = tmp[k];
             n++;
         }
 
         k = i + n;
         m = i + newEventSpace;
         for( ; k < m; ++k ) {
-            this[k] = void 0;
+            events[k] = void 0;
         }
     }
 };
@@ -296,8 +305,9 @@ EventEmitter.prototype._doCompact = function EventEmitter$_doCompact() {
     var eventSpace = this._eventSpace + 1;
     var eventCount = this._eventCount;
     var shouldCompact = false;
+    var events = this._events;
     for( var i = 0; i < eventCount; ++i ) {
-        if( this[j+1] === void 0 ) {
+        if( events[j+1] === void 0 ) {
             shouldCompact = true;
             break;
         }
@@ -305,10 +315,10 @@ EventEmitter.prototype._doCompact = function EventEmitter$_doCompact() {
     }
     if( !shouldCompact ) return false;
     j = 0;
-    var len = this._eventLength;
+    var len = events.length;
     var skips = 0;
     for( var i = 0; i < len; i += eventSpace ) {
-        var listener = this[ i + 1 ];
+        var listener = events[ i + 1 ];
         if( listener === void 0 ) {
             skips += eventSpace;
         }
@@ -316,12 +326,12 @@ EventEmitter.prototype._doCompact = function EventEmitter$_doCompact() {
             var k = i;
             var m = k + eventSpace;
             for( ; k < m; ++k ) {
-                this[ j++ ] = this[ k ];
+                events[ j++ ] = events[ k ];
             }
         }
     }
     for( var i = len - skips; i < len; ++i ) {
-        this[i] = void 0;
+        events[i] = void 0;
     }
     return true;
 };
@@ -331,26 +341,27 @@ function EventEmitter$_resizeForEvents() {
     if( this._doCompact() ) {
         return;
     }
-    var oldLength = this._eventLength;
-    var newLength = this._eventLength = ( ( this._eventSpace + 1 ) *
+    var events = this._events;
+    var oldLength = events.length;
+    var newLength = ( ( this._eventSpace + 1 ) *
             Math.max( this._eventCount * 2, INITIAL_DISTINCT_HANDLER_TYPES ) );
-
     for( var i = oldLength; i < newLength; ++i ) {
-        this[i] = void 0;
+        events.push( void 0 );
     }
 };
 
 EventEmitter.prototype._emitRemoveAll =
 function EventEmitter$_emitRemoveAll( type ) {
+    var events = this._events;
     if( type === void 0 ) {
-        var len = this._eventLength;
+        var len = events.length;
         var eventSpace = this._eventSpace + 1;
         for( var i = 0; i < len; i += eventSpace ) {
-            var emitType = this[i];
+            var emitType = events[i];
             var k = i + 1;
             var m = k + eventSpace;
             for( ; k < m; ++k ) {
-                var listener = this[k];
+                var listener = events[k];
                 if( listener === void 0 ) {
                     break;
                 }
@@ -366,7 +377,7 @@ function EventEmitter$_emitRemoveAll( type ) {
         var m = k + this._eventSpace + 1;
 
         for( ; k < m; ++k ) {
-            var listener = this[k];
+            var listener = events[k];
             if( listener === void 0 ) {
                 break;
             }
@@ -393,8 +404,9 @@ function EventEmitter$_indexOfEvent( eventName ) {
     var j = 0;
     var eventSpace = this._eventSpace + 1;
     var eventCount = this._eventCount;
+    var events = this._events;
     for( var i = 0; i < eventCount; ++i ) {
-        if( this[j] === eventName ) {
+        if( events[j] === eventName ) {
             return j;
         }
         j+= eventSpace;
@@ -405,27 +417,28 @@ function EventEmitter$_indexOfEvent( eventName ) {
 EventEmitter.prototype._nextFreeIndex =
 function EventEmitter$_nextFreeIndex( eventName ) {
     var eventSpace = this._eventSpace + 1;
-    var length = this._eventLength;
-
+    var events = this._events;
+    var length = events.length;
     for( var i = 0; i < length; i += eventSpace ) {
-        if( this[i] === eventName ) {
+        var event = events[i];
+        if( event === eventName ) {
             var k = i + 1;
             var len = i + eventSpace;
             for( ; k < len; ++k ) {
-                if( this[k] === void 0 ) {
+                if( events[k] === void 0 ) {
                     return k;
                 }
             }
             this._resizeForHandlers();
             return this._nextFreeIndex( eventName );
         }
-        else if( this[i] === void 0 ) {
-            this[i] = eventName;
+        else if( event === void 0 ) {
+            events[i] = eventName;
             this._eventCount++;
             return i + 1;
         }
-        else if( this[ i + 1 ] === void 0) {
-            this[i] = eventName;
+        else if( events[ i + 1 ] === void 0) {
+            events[i] = eventName;
             return i + 1;
         }
     }
@@ -455,26 +468,29 @@ EventEmitter.prototype._emitApply =
 function EventEmitter$_emitApply( index, length, args ) {
     var eventsWereFired = false;
     var multipleListeners = ( length - index ) > 1;
+    var events = this._events;
+    var event = events[index];
      if( !multipleListeners ) {
-        if( this[index] !== void 0) {
-            this[index].apply( this, args );
+        if( event !== void 0) {
+            event.apply( this, args );
             return true;
         }
         return false;
     }
     var next = void 0;
     for( ; index < length; ++index ) {
-        if( this[index] === void 0 ) {
+        event = events[index];
+        if( event === void 0 ) {
             break;
         }
         eventsWereFired = true;
         if( multipleListeners && ( ( index + 1 ) < length ) ) {
-            next = this[ index + 1 ];
+            next = events[ index + 1 ];
         }
-        this[index].apply( this, args );
+        event.apply( this, args );
         //The current listener was removed from its own callback
         if( multipleListeners && ( ( index + 1 ) < length ) &&
-            next !== void 0 && next === this[ index ] ) {
+            next !== void 0 && next === events[index] ) {
             index--;
             length--;
         }
@@ -484,8 +500,9 @@ function EventEmitter$_emitApply( index, length, args ) {
 
 EventEmitter.prototype._emitSingle0 =
 function EventEmitter$_emitSingle0( index ) {
-    if( this[index] !== void 0) {
-        this[index]();
+    var event = this._events[index];
+    if( event !== void 0) {
+        event.call( this );
         return true;
     }
     return false;
@@ -493,8 +510,9 @@ function EventEmitter$_emitSingle0( index ) {
 
 EventEmitter.prototype._emitSingle1 =
 function EventEmitter$_emitSingle1( index, a1 ) {
-    if( this[index] !== void 0) {
-        this[index]( a1 );
+    var event = this._events[index];
+    if( event !== void 0) {
+        event.call( this, a1 );
         return true;
     }
     return false;
@@ -502,8 +520,9 @@ function EventEmitter$_emitSingle1( index, a1 ) {
 
 EventEmitter.prototype._emitSingle2 =
 function EventEmitter$_emitSingle2( index, a1, a2 ) {
-    if( this[index] !== void 0) {
-        this[index]( a1, a2 );
+    var event = this._events[index];
+    if( event !== void 0) {
+        event.call( this, a1, a2 );
         return true;
     }
     return false;
@@ -512,18 +531,21 @@ function EventEmitter$_emitSingle2( index, a1, a2 ) {
 EventEmitter.prototype._emit0 = function EventEmitter$_emit0( index, length ) {
     var eventsWereFired = false;
     var next = void 0;
+    var events = this._events;
+    var event;
     for( ; index < length; ++index ) {
-        if( this[index] === void 0 ) {
+        event = events[index];
+        if( event === void 0 ) {
             break;
         }
         eventsWereFired = true;
         if( ( ( index + 1 ) < length ) ) {
-            next = this[ index + 1 ];
+            next = events[ index + 1 ];
         }
-        this[index]();
+        event.call( this );
         //The current listener was removed from its own callback
         if( ( ( index + 1 ) < length ) &&
-            next !== void 0 && next === this[ index ] ) {
+            next !== void 0 && next === events[index] ) {
             index--;
             length--;
         }
@@ -538,18 +560,21 @@ EventEmitter.prototype._emit1 =
 function EventEmitter$_emit1( index, length, a1 ) {
     var eventsWereFired = false;
     var next = void 0;
+    var events = this._events;
+    var event;
     for( ; index < length; ++index ) {
-        if( this[index] === void 0 ) {
+        event = events[index];
+        if( event === void 0 ) {
             break;
         }
         eventsWereFired = true;
         if( ( ( index + 1 ) < length ) ) {
-            next = this[ index + 1 ];
+            next = events[ index + 1 ];
         }
-        this[index]( a1 );
+        event.call( this, a1 );
         //The current listener was removed from its own callback
         if( ( ( index + 1 ) < length ) &&
-            next !== void 0 && next === this[ index ] ) {
+            next !== void 0 && next === events[index] ) {
             index--;
             length--;
         }
@@ -564,18 +589,21 @@ EventEmitter.prototype._emit2 =
 function EventEmitter$_emit2( index, length, a1, a2 ) {
     var eventsWereFired = false;
     var next = void 0;
+    var events = this._events;
+    var event;
     for( ; index < length; ++index ) {
-        if( this[index] === void 0 ) {
+        event = events[index];
+        if( event === void 0 ) {
             break;
         }
         eventsWereFired = true;
         if( ( ( index + 1 ) < length ) ) {
-            next = this[ index + 1 ];
+            next = events[ index + 1 ];
         }
-        this[index]( a1, a2 );
+        event.call( this, a1, a2 );
         //The current listener was removed from its own callback
         if( ( ( index + 1 ) < length ) &&
-            next !== void 0 && next === this[ index ] ) {
+            next !== void 0 && next === events[index] ) {
             index--;
             length--;
         }
@@ -593,24 +621,21 @@ function EventEmitter$_emit2( index, length, a1, a2 ) {
 //The amount of unique event types currently registered.
 //Might not be the actual amount
 
-//eventLength
-//The length of the buffer where everything is stored
-//Initially reserves space for INITIAL_DISTINCT_HANDLER_TYPES
-//distinct event types
+
 EventEmitter.prototype._maybeInit = function EventEmitter$_maybeInit() {
-    if( typeof this._eventLength !== "number" ) {
+    if( !isArray( this._events ) ) {
         this._eventSpace = 1;
         this._eventCount = 0;
-        this._eventLength = ( ( this._eventSpace + 1 ) *
-                                INITIAL_DISTINCT_HANDLER_TYPES ) | 0;
-        this._initSpace();
+        var events = this._events = new Array( ( ( this._eventSpace + 1 ) *
+                                INITIAL_DISTINCT_HANDLER_TYPES ) | 0);
+        this._initSpace( events );
     }
 };
 
-EventEmitter.prototype._initSpace = function EventEmitter$_initSpace() {
-    var len = this._eventLength;
+EventEmitter.prototype._initSpace = function EventEmitter$_initSpace( events ) {
+    var len = events.length;
     for( var i = 0; i < len; ++i ) {
-        this[i] = void 0;
+        events[i] = void 0;
     }
 };
 
