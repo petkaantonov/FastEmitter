@@ -417,13 +417,16 @@ function EventEmitter$_nextFreeIndex( eventName ) {
                 }
             }
             this._resizeForHandlers();
-            //Todo no-recursion
             return this._nextFreeIndex( eventName );
         }
         else if( this[i] === void 0 ) {
             this[i] = eventName;
             this._eventCount++;
-            return i+1;
+            return i + 1;
+        }
+        else if( this[ i + 1 ] === void 0) {
+            this[i] = eventName;
+            return i + 1;
         }
     }
     this._resizeForEvents();
