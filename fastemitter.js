@@ -223,7 +223,7 @@ function EventEmitter$removeAllListeners( type ) {
     var events = this._events;
     var eventSpace = this._eventSpace;
     var k = index + 1;
-    var len = k + eventSpace + 1;
+    var len = k + eventSpace;
     if( this._indexOfEvent("removeListener") >= 0 ) {
         this._emitRemoveAll( type );
     }
