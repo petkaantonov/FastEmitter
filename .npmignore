@@ -1,5 +1,12 @@
-node_modules/*
+test/*
+test
+.editorconfig
+.gitignore
+.jshintrc
+common.js
 fastemitter.sublime-project
 fastemitter.sublime-workspace
+Gruntfile.js
+mocharun.js
 throwaway.js
 nodex64.exe

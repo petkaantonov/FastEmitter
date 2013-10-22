@@ -75,6 +75,13 @@ EventEmitter.prototype.emit = function EventEmitter$emit( type, a1, a2 ) {
         }
         eventsWereFired = this._emitApply( k, len, args );
     }
+    else if( len - k === 1 ) {
+        switch( argc ) {
+        case 1: eventsWereFired = this._emitSingle0( k ); break;
+        case 2: eventsWereFired = this._emitSingle1( k, a1 ); break;
+        case 3: eventsWereFired = this._emitSingle2( k, a1, a2 ); break;
+        }
+    }
     else {
         switch( argc ) {
         case 1: eventsWereFired = this._emit0( k, len ); break;
@@ -472,28 +479,44 @@ function EventEmitter$_emitApply( index, length, args ) {
     return eventsWereFired;
 };
 
+EventEmitter.prototype._emitSingle0 = function EventEmitter$_emitSingle0( index ) {
+    if( this[index] !== void 0) {
+        this[index]();
+        return true;
+    }
+    return false;
+};
+
+EventEmitter.prototype._emitSingle1 = function EventEmitter$_emitSingle1( index, a1 ) {
+    if( this[index] !== void 0) {
+        this[index]( a1 );
+        return true;
+    }
+    return false;
+};
+
+EventEmitter.prototype._emitSingle2 = function EventEmitter$_emitSingle2( index, a1, a2 ) {
+    if( this[index] !== void 0) {
+        this[index]( a1, a2 );
+        return true;
+    }
+    return false;
+};
+
 EventEmitter.prototype._emit0 = function EventEmitter$_emit0( index, length ) {
     var eventsWereFired = false;
-    var multipleListeners = ( length - index ) > 1;
-    if( !multipleListeners ) {
-        if( this[index] !== void 0) {
-            this[index]();
-            return true;
-        }
-        return false;
-    }
     var next = void 0;
     for( ; index < length; ++index ) {
         if( this[index] === void 0 ) {
             break;
         }
         eventsWereFired = true;
-        if( multipleListeners && ( ( index + 1 ) < length ) ) {
+        if( ( ( index + 1 ) < length ) ) {
             next = this[ index + 1 ];
         }
         this[index]();
         //The current listener was removed from its own callback
-        if( multipleListeners && ( ( index + 1 ) < length ) &&
+        if( ( ( index + 1 ) < length ) &&
             next !== void 0 && next === this[ index ] ) {
             index--;
             length--;
@@ -505,26 +528,18 @@ EventEmitter.prototype._emit0 = function EventEmitter$_emit0( index, length ) {
 EventEmitter.prototype._emit1 =
 function EventEmitter$_emit1( index, length, a1 ) {
     var eventsWereFired = false;
-    var multipleListeners = ( length - index ) > 1;
-    if( !multipleListeners ) {
-        if( this[index] !== void 0) {
-            this[index]( a1 );
-            return true;
-        }
-        return false;
-    }
     var next = void 0;
     for( ; index < length; ++index ) {
         if( this[index] === void 0 ) {
             break;
         }
         eventsWereFired = true;
-        if( multipleListeners && ( ( index + 1 ) < length ) ) {
+        if( ( ( index + 1 ) < length ) ) {
             next = this[ index + 1 ];
         }
         this[index]( a1 );
         //The current listener was removed from its own callback
-        if( multipleListeners && ( ( index + 1 ) < length ) &&
+        if( ( ( index + 1 ) < length ) &&
             next !== void 0 && next === this[ index ] ) {
             index--;
             length--;
@@ -536,26 +551,18 @@ function EventEmitter$_emit1( index, length, a1 ) {
 EventEmitter.prototype._emit2 =
 function EventEmitter$_emit2( index, length, a1, a2 ) {
     var eventsWereFired = false;
-    var multipleListeners = ( length - index ) > 1;
-     if( !multipleListeners ) {
-        if( this[index] !== void 0) {
-            this[index]( a1, a2 );
-            return true;
-        }
-        return false;
-    }
     var next = void 0;
     for( ; index < length; ++index ) {
         if( this[index] === void 0 ) {
             break;
         }
         eventsWereFired = true;
-        if( multipleListeners && ( ( index + 1 ) < length ) ) {
+        if( ( ( index + 1 ) < length ) ) {
             next = this[ index + 1 ];
         }
         this[index]( a1, a2 );
         //The current listener was removed from its own callback
-        if( multipleListeners && ( ( index + 1 ) < length ) &&
+        if( ( ( index + 1 ) < length ) &&
             next !== void 0 && next === this[ index ] ) {
             index--;
             length--;
