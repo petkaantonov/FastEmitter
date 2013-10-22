@@ -479,7 +479,8 @@ function EventEmitter$_emitApply( index, length, args ) {
     return eventsWereFired;
 };
 
-EventEmitter.prototype._emitSingle0 = function EventEmitter$_emitSingle0( index ) {
+EventEmitter.prototype._emitSingle0 =
+function EventEmitter$_emitSingle0( index ) {
     if( this[index] !== void 0) {
         this[index]();
         return true;
@@ -487,7 +488,8 @@ EventEmitter.prototype._emitSingle0 = function EventEmitter$_emitSingle0( index 
     return false;
 };
 
-EventEmitter.prototype._emitSingle1 = function EventEmitter$_emitSingle1( index, a1 ) {
+EventEmitter.prototype._emitSingle1 =
+function EventEmitter$_emitSingle1( index, a1 ) {
     if( this[index] !== void 0) {
         this[index]( a1 );
         return true;
@@ -495,7 +497,8 @@ EventEmitter.prototype._emitSingle1 = function EventEmitter$_emitSingle1( index,
     return false;
 };
 
-EventEmitter.prototype._emitSingle2 = function EventEmitter$_emitSingle2( index, a1, a2 ) {
+EventEmitter.prototype._emitSingle2 =
+function EventEmitter$_emitSingle2( index, a1, a2 ) {
     if( this[index] !== void 0) {
         this[index]( a1, a2 );
         return true;
@@ -521,6 +524,9 @@ EventEmitter.prototype._emit0 = function EventEmitter$_emit0( index, length ) {
             index--;
             length--;
         }
+        else if( next === void 0 ) {
+            break;
+        }
     }
     return eventsWereFired;
 };
@@ -544,6 +550,9 @@ function EventEmitter$_emit1( index, length, a1 ) {
             index--;
             length--;
         }
+        else if( next === void 0 ) {
+            break;
+        }
     }
     return eventsWereFired;
 };
@@ -566,6 +575,9 @@ function EventEmitter$_emit2( index, length, a1, a2 ) {
             next !== void 0 && next === this[ index ] ) {
             index--;
             length--;
+        }
+        else if( next === void 0 ) {
+            break;
         }
     }
     return eventsWereFired;
